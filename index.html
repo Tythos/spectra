@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spectra</title>
+    <link href="index.css" rel="stylesheet" type="text/css" />
+    <script type="module" src="index.mjs"></script>
+</head>
+
+<body>
+    <h1>Spectra</h1>
+    <div class="Row">
+        <div class="Column Column0">
+            <div class="InitColor">
+                <input type="color" value="#ff0000" />
+                <div></div>
+            </div>
+            <div class="FinalColor">
+                <input type="color" value="#00ff00" />
+                <div></div>
+            </div>
+            <div class="NumberSteps">
+                <input type="number" value="5" />
+            </div>
+            <div class="InterpMode">
+                <select>
+                    <option>Linear RGB</option>
+                    <option>Linear HSL</option>
+                </select>
+            </div>
+            <button style="display:none;" class="Execute">Execute</button>
+        </div>
+        <div class="Column Column1"></div>
+    </div>
+</body>
+
+</html>
