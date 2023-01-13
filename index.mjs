@@ -24,6 +24,16 @@ const interpModeMap = {
             colors.push(conversions.fromHSL([h, s, l]));
         }
         return colors;
+    },
+    "Integer Space": (rgbi, rgbf, n) => {
+        let inti = conversions.toINT(rgbi);
+        let intf = conversions.toINT(rgbf);
+        let colors = [];
+        for (let i = 0; i < n; i += 1) {
+            let int = inti + i / (n - 1) * (intf - inti);
+            colors.push(conversions.fromINT(int));
+        }
+        return colors;
     }
 };
 
@@ -87,6 +97,67 @@ const conversions = { // to/from 0-1 rgb array
         }
         let m = l - 0.5 * c;
         return [r + m, g + m, b + m];
+    },
+    "toINT": (rgb) => {
+        let r = Math.floor(rgb[0] * 255);
+        let g = Math.floor(rgb[1] * 255);
+        let b = Math.floor(rgb[2] * 255);
+        return (r << 16) + (g << 8) + b;
+    },
+    "fromINT": (int) => {
+        let b = int % 256;
+        int = int >> 8;
+        let g = int % 256;
+        int = int >> 8;
+        let r = int % 256;
+        return [r / 255, g / 255, b / 255];
+    },
+    "toLCH": (rgb) => {
+        let Th = 8.856e-3;
+        let m = [
+            [0.412453, 0.357580, 0.180423],
+            [0.212671, 0.715160, 0.072169],
+            [0.019334, 0.119193, 0.950227]
+        ];
+        let xyz = [
+            m[0][0] * rgb[0] + m[0][1] * rgb[0] + m[0][2] * rgb[0],
+            m[1][0] * rgb[1] + m[1][1] * rgb[1] + m[1][2] * rgb[1],
+            m[2][0] * rgb[2] + m[2][1] * rgb[2] + m[2][2] * rgb[2]
+        ];
+        xyz[0] /= 0.950456;
+        xyz[2] /= 1.088754;
+        let tx = xyz[0] > Th ? 1 : 0;
+        let ty = xyz[1] > Th ? 1 : 0;
+        let tz = xyz[2] > Th ? 1 : 0;
+        let fTx = tx * Math.pow(xyz[0], 1/3) + (1 - tx) * (7.787 * xyz[0] + 16/116);
+        let fTy = ty * Math.pow(xyz[1], 1/3) + (1 - ty) * (7.787 * xyz[1] + 16/116);
+        let fTz = tz * Math.pow(xyz[2], 1/3) + (1 - tz) * (7.787 * xyz[2] + 16/116);
+        let L = 116 * fTy - 16;
+        let a = 500 * (fTx - fTy);
+        let b = 200 * (fTy - fTz);
+        let C = Math.sqrt(a * a + b * b);
+        let H = Math.atan2(b, a);
+        return [L, C, H];
+    }, "fromLCH": (lch) => {
+        // convert LCH to Lab
+        let L = lch[0];
+        let a = lch[1] * Math.cos(lch[2]);
+        let b = lch[1] * Math.sin(lch[2]);
+        // convert Lab to XYZ
+        let eps = 8.856e-3;
+        let kap = 903.3;
+        let f_y = (L + 16) / 116;
+        let f_x = a / 500 + f_y;
+        let f_z = f_y - b / 200;
+        let X = Math.pow(f_x, 3) > eps ? Math.pow(f_x, 3) : (116 * f_x - 16) / kap;
+        let Y = L > kap * eps ? Math.pow((L + 16) / 116, 3) : L / kap;
+        let Z = Math.pow(f_z, 3) > eps ? Math.pow(f_z, 3) : (116 * f_z - 16) / kap;
+        // convert XYZ to RGB
+        let m = [
+            [0.412453, 0.357580, 0.180423],
+            [0.212671, 0.715160, 0.072169],
+            [0.019334, 0.119193, 0.950227]
+        ];
     }
 }
 
@@ -113,6 +184,19 @@ function renderColorFacets(color) {
         let g = Math.floor(color[1] * 255).toString(16);
         let b = Math.floor(color[2] * 255).toString(16);
         span.textContent = `hex: #${r.length > 1 ? r : "0" + r}${g.length > 1 ? g : "0" + g}${b.length > 1 ? b : "0" + b}`;
+        div.appendChild(span);
+    } {
+        // int
+        let span = window.document.createElement("span");
+        let int = conversions.toINT(color).toString();
+        let max = parseInt("ffffff", 16).toString();
+        span.textContent = `integer: ${new Array(max.length - int.length).fill("0").join("")}${int}`;
+        div.appendChild(span);
+    } {
+        // LCH
+        let span = window.document.createElement("span");
+        let LCH = conversions.toLCH(color);
+        span.textContent = `LCH: ${LCH[0].toFixed(2)}, ${LCH[1].toFixed(2)}, ${LCH[2].toFixed(2)}`;
         div.appendChild(span);
     }
     return div;
@@ -164,7 +248,18 @@ function onSpectraUpdate() {
     finalAnno.appendChild(renderColorFacets([rf, gf, bf]));
 }
 
+function autopopulateInterpolators() {
+    let InterpMode = window.document.querySelector(".InterpMode").querySelector("select");
+    Object.keys(interpModeMap).forEach(interpName => {
+        let option = window.document.createElement("option");
+        option.value = interpName;
+        option.textContent = interpName;
+        InterpMode.appendChild(option);
+    });
+}
+
 function onWindowLoaded(event) {
+    autopopulateInterpolators();
     window.document.querySelector(".Execute").addEventListener("click", onSpectraUpdate);
     Array.from(window.document.querySelectorAll("input")).forEach(input => {
         input.addEventListener("change", onSpectraUpdate);
